@@ -7,7 +7,7 @@ import logging
 import urllib.request
 
 boses = []
-
+error_regex_file_path = 'error-patterns.txt'
 
 def get_length_prefixed_string_bytes(string):
     # get string in bytes, diff languages have different
@@ -61,6 +61,10 @@ def translate_binary_file_with_csv(binary_file_path, csv_file_path):
     binary_file_content = b""
     with open(binary_file_path, "rb") as fd_bin:
         binary_file_content = fd_bin.read()
+    
+    # load the Regex pattern file into a list
+    with open(error_regex_file_path, "r") as fd_error:
+        error_regex_content = fd_error.readlines()
 
     with open(csv_file_path, newline="", encoding="utf-8") as fd_csv:
         csv_file = csv.reader(fd_csv)
@@ -68,6 +72,9 @@ def translate_binary_file_with_csv(binary_file_path, csv_file_path):
             if len(row[1]):
                 org_str = row[0]
                 trn_str = row[1].strip()
+                # check the translated string for error patterns; skip if found
+                if check_regex_errors(error_regex_content,trn_str):
+                    continue
                 lps_trn_bytes = get_length_prefixed_string_bytes(trn_str)
                 bos_to_replace = []
                 for bos in boses:
@@ -199,3 +206,16 @@ def get_korean_strings():
 
 def get_strings_from_csv(csv_strings):
     return [s[0].strip() for s in csv_strings]
+
+def check_regex_errors(rex_list, match_string):
+    error_found = 0
+    for rex in rex_list:
+        # we have to strip the lines in rex_list to remove newline characters
+        if re.search(rex.strip(),match_string):
+            # we print an error if we find an issue so we can go correct it
+            print ('Error in text string :: "' + match_string + '" :: omitting')
+            error_found = 1
+            # once an error is found we can exit the loop
+            break
+    # we return the value of error_found so it can be used as a condition
+    return bool(error_found)
